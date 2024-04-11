@@ -34,7 +34,7 @@ def extract_actor_pairs(cast_str):
 df_with_pairs = df.withColumn("actor_pairs", extract_actor_pairs(col("cast")))
 
 print("df_with_pairs: ")
-df_with_pairs.select("movie_id", "title", "actor_pairs").show(1, truncate=False)
+df_with_pairs.select("movie_id", "title", "actor_pairs").show()
 
 # CHECK FOR DUPLICATES IN THE ACTOR PAIRS for each movie:
 
@@ -61,14 +61,14 @@ else:
 
 # Flatten the DataFrame into rows of individual actor pairs per movie, using RDD for transformation
 rdd_exploded_pairs = df_with_pairs.rdd.flatMap(lambda row: [(tuple(pair), row['movie_id'], row['title']) for pair in row['actor_pairs']])
-print(rdd_pair_counts.take(5))
+print(rdd_exploded_pairs.take(5))
 
 # Map each pair to a tuple ((actor1, actor2), (movie_id, title)), then reduce by key to aggregate movie_ids and titles
 rdd_pair_counts = rdd_exploded_pairs.map(lambda x: (x[0], [(x[1], x[2])])).reduceByKey(lambda a, b: a + b)
 print(rdd_pair_counts.take(5))
 
-# Filter out pairs that do not have at least 2 movies together and sort
-rdd_filtered_sorted_pairs = rdd_pair_counts.filter(lambda x: len(x[1]) >= 2).sortByKey()
+# Filter out pairs that do not have at least 2 movies together
+rdd_filtered_sorted_pairs = rdd_pair_counts.filter(lambda x: len(x[1]) >= 2) #.sortByKey()
 print(rdd_filtered_sorted_pairs.take(5))
 
 # Convert back to DataFrame
@@ -81,7 +81,7 @@ schema = StructType([
 ])
 
 df_final_pairs = spark.createDataFrame(rdd_filtered_sorted_pairs.map(lambda x: (list(x[0]), x[1])), schema)
-df_final_pairs.show(truncate=False)
+df_final_pairs.show()
 
 # Explode the movies array to separate rows and select the columns
 df_exploded = df_final_pairs.withColumn("movie", explode(col("movies")))
